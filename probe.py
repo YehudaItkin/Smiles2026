@@ -1,8 +1,5 @@
 """
 probe.py — Hallucination probe: multi-seed CatBoost ensemble.
-
-Trains 5 CatBoost models with different random seeds and averages
-their predictions to reduce variance.
 """
 
 from __future__ import annotations

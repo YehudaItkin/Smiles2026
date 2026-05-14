@@ -46,6 +46,7 @@ def aggregate(
     n_real = attention_mask.sum().float().clamp(min=1.0)
     n_real_int = int(n_real.item())
     mask_float = attention_mask.unsqueeze(-1).float()
+    mask_bool = attention_mask.bool()
 
     features = []
 
@@ -102,10 +103,10 @@ def aggregate(
     W = _get_lm_head()
     N = min(10, n_real_int)
     start_tok = max(last_pos - N + 1, first_pos)
-    last_n_hidden = hidden_states[-1, start_tok : last_pos + 1, :]  # (N, 896)
+    last_n_hidden = hidden_states[-1, start_tok : last_pos + 1, :]
 
     with torch.no_grad():
-        logits = last_n_hidden @ W.T  # (N, vocab_size)
+        logits = last_n_hidden @ W.T
         log_probs = F.log_softmax(logits, dim=-1)
 
         max_log_prob = log_probs.max(dim=-1).values
