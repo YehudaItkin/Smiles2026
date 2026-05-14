@@ -40,28 +40,23 @@ class HallucinationProbe(nn.Module):
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "HallucinationProbe":
         X_scaled = self._scaler.fit_transform(X)
-
         self._models = []
         for seed in SEEDS:
             m = self._make_model(seed=seed)
             m.fit(X_scaled, y)
             self._models.append(m)
-
         self._tune_threshold_internal(X_scaled, y)
         return self
 
     def _tune_threshold_internal(self, X: np.ndarray, y: np.ndarray) -> None:
         if len(np.unique(y)) < 2:
             return
-
         all_probs = np.zeros(len(y))
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-
         for tr_idx, va_idx in skf.split(X, y):
             m = self._make_model(seed=42)
             m.fit(X[tr_idx], y[tr_idx])
             all_probs[va_idx] = m.predict_proba(X[va_idx])[:, 1]
-
         best_threshold, best_f1 = 0.5, -1.0
         for t in np.linspace(0.2, 0.8, 61):
             score = f1_score(y, (all_probs >= t).astype(int), zero_division=0)
