@@ -130,10 +130,38 @@ Replaced the baseline single-hidden-layer MLP with a **multi-seed CatBoost ensem
 - **Result**: Test AUROC 68.91%, Accuracy 70.39%
 - **Issue**: 896 extra raw dimensions overwhelmed the useful features with noise.
 
+### Experiment 10: Stacking ensemble (LDA + SVM + CatBoost)
+- **Setup**: 1050 features → PCA(80) → LDA + SVM(RBF) + CatBoost trained separately → OOF meta-features → LogReg meta-classifier
+- **Result**: Test AUROC 73.47%, Accuracy 71.69%
+- **Issue**: PCA(80) bottleneck lost discriminative information before base models. Much less overfitting (train 88.5% vs 98.8%) but worse test generalization. Stacking overhead didn't justify marginal gains.
+
+### Experiment 11: Extended logit features (trend + response-focused)
+- **Setup**: 1050 features (added entropy/probability trend first-half vs second-half, response-focused stats) → 5× CatBoost
+- **Result**: Test AUROC 72.54%, Accuracy 71.84%
+- **Issue**: Trend and response-focused features were noise — the heuristic split (first/second half of tokens) doesn't reliably separate prompt from response without token IDs.
+
+### Summary Table
+
+| # | Method | Features | AUROC | Accuracy |
+|---|--------|----------|-------|----------|
+| 1 | PCA(150) + LR+CatBoost | 1038 | 72.25% | 71.55% |
+| 2 | Geometric only + PCA(80) | 142 | 70.80% | 70.82% |
+| 3 | Multi-layer raw + PCA(40) | 2830 | 68.65% | 70.83% |
+| 4 | PCA(100) + LR+CatBoost | 1038 | 71.73% | 70.10% |
+| 5 | Extended (eigen+traj) + Mahalanobis | 1085 | 71.96% | 72.71% |
+| 6 | CatBoost direct, rsm=0.3 | 1038 | 73.15% | 72.28% |
+| **7** | **Logits + 5-seed CatBoost** | **1046** | **73.89%** | **73.00%** |
+| 8 | RDE (KernelPCA+MCD) | 1046 | 70.76% | 73.73% |
+| 9 | Mean-pooled mid layer + RDE | 1942 | 68.91% | 70.39% |
+| 10 | Stacking (LDA+SVM+CB) | 1050 | 73.47% | 71.69% |
+| 11 | Extended logits (trend) | 1050 | 72.54% | 71.84% |
+
 ### Key Takeaways
 
 1. **Feature quality > quantity** with 689 samples. Adding noisy features hurts even with built-in feature selection.
 2. **Logit-based features** (entropy, max probability, top gap) provide a fundamentally different signal from hidden-state geometry — the model's **prediction confidence** vs its **internal representation structure**.
-3. **CatBoost with rsm=0.3** is the right classifier for high-dimensional small-sample problems — better than PCA+LogReg, PCA+ensemble, or MLP.
+3. **CatBoost with rsm=0.3** is the right classifier for high-dimensional small-sample problems — better than PCA+LogReg, PCA+ensemble, stacking, or MLP.
 4. **Multi-seed ensemble** is a cheap way to reduce variance with no downside.
 5. **Density-based methods** (Mahalanobis, RDE) from lm-polygraph were theoretically promising but numerically unstable with only ~200 samples per class.
+6. **Stacking (LDA+SVM+CatBoost)** reduced overfitting but the PCA bottleneck before base models lost too much signal. Different classifier families didn't add enough diversity to overcome information loss.
+7. **Heuristic token splitting** (first/second half, last 30%) fails without actual token IDs to separate prompt from response.
