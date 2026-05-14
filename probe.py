@@ -1,7 +1,5 @@
 """
-probe.py — Hallucination probe: CatBoost direct (no PCA).
-
-CatBoost handles feature selection internally via ordered boosting.
+probe.py — Hallucination probe: CatBoost direct on all features.
 """
 
 from __future__ import annotations
@@ -36,26 +34,20 @@ class HallucinationProbe(nn.Module):
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "HallucinationProbe":
         X_scaled = self._scaler.fit_transform(X)
-
         self._model = self._make_model()
         self._model.fit(X_scaled, y)
-
         self._tune_threshold_internal(X_scaled, y)
-
         return self
 
     def _tune_threshold_internal(self, X: np.ndarray, y: np.ndarray) -> None:
         if len(np.unique(y)) < 2:
             return
-
         all_probs = np.zeros(len(y))
         skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
-
         for tr_idx, va_idx in skf.split(X, y):
             fold_model = self._make_model()
             fold_model.fit(X[tr_idx], y[tr_idx])
             all_probs[va_idx] = fold_model.predict_proba(X[va_idx])[:, 1]
-
         best_threshold, best_f1 = 0.5, -1.0
         for t in np.linspace(0.2, 0.8, 61):
             score = f1_score(y, (all_probs >= t).astype(int), zero_division=0)
@@ -69,7 +61,6 @@ class HallucinationProbe(nn.Module):
     ) -> "HallucinationProbe":
         probs = self.predict_proba(X_val)[:, 1]
         candidates = np.unique(np.concatenate([probs, np.linspace(0.0, 1.0, 101)]))
-
         best_threshold, best_f1 = 0.5, -1.0
         for t in candidates:
             score = f1_score(y_val, (probs >= t).astype(int), zero_division=0)

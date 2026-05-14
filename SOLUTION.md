@@ -90,5 +90,15 @@ The **geometric feature engineering** was the single most impactful change — p
 - **Result**: Test AUROC 71.73%, Accuracy 70.10%
 - **Issue**: Middle ground didn't outperform either extreme. LogReg regularization too strong (C=0.3) suppressed useful signal.
 
+### Experiment 5: Extended features (entropy + eigenvalues + trajectory + Mahalanobis)
+- **Setup**: 1085 features (added activation entropy per layer, prompt/response contrast, trajectory curvature, eigenvalue features from token covariance matrices) + Mahalanobis distance from class distributions as probe features
+- **Result**: Test AUROC 71.96%, Accuracy 72.71%
+- **Issue**: Additional features added noise. Eigenvalues from small token counts were unstable. Activation entropy (softmax of raw hidden states) was a crude proxy. Prompt/response boundary heuristic (60% split) was imprecise without token IDs. More features = more spurious correlations with 689 samples.
+
+### Experiment 6: Extended aggregation features without Mahalanobis
+- **Setup**: 1085 features (same as Exp 5) + simple CatBoost (no Mahalanobis)
+- **Result**: Test AUROC 72.58%, Accuracy 72.28%
+- **Issue**: Removing Mahalanobis helped AUROC slightly, but still worse than the simpler 1038-feature set. Confirmed that the additional features were noise, not signal.
+
 ### Key Takeaway
-CatBoost directly on scaled features (no PCA) with `rsm=0.3` outperformed all PCA-based approaches. CatBoost's built-in feature selection via random subspace method is more effective than PCA for this task, because PCA optimizes for variance rather than discriminative power.
+CatBoost directly on scaled features (no PCA) with `rsm=0.3` outperformed all PCA-based and extended-feature approaches. CatBoost's built-in feature selection via random subspace method is more effective than PCA for this task, because PCA optimizes for variance rather than discriminative power. With only 689 training samples, **feature quality matters more than quantity** — adding noisy features hurts even with built-in feature selection.
